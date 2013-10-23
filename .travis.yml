@@ -36,9 +36,6 @@ matrix:
       env: BIN="ringo"   BUILD="legacy"
 git:
   depth: 1
-branches:
-  only:
-    - master
 before_install:
   - "[ $BIN == 'istanbul' ] && npm i -g istanbul || true"
   - "[ $BIN == 'narwhal' ] && wget https://github.com/280north/narwhal/archive/v0.3.2.zip && sudo unzip v0.3.2 -d /opt/ && rm v0.3.2.zip || true"
