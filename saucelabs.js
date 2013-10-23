@@ -10,18 +10,24 @@ var server = connect.createServer(
 var browser = JSON.parse(process.env['SAUCE_BROWSER']);
 var username = process.env['SAUCE_USERNAME'];
 var accessKey = process.env['SAUCE_ACCESS_KEY'];
+var sauceConnectTunnel = process.env['TRAVIS_JOB_NUMBER'] // TODO: How should this work locally?
 
 var request = require('request');
+
+var testDefinition = {
+    platforms: [ browser ],
+    url: "http://localhost:" + port + "/test/index.html",
+    framework: "qunit",
+    "tunnel-identifier": sauceConnectTunnel
+};
+
+console.log("Starting saucelabs test: " + JSON.stringify(testDefinition));
 
 request.post(
     'https://saucelabs.com/rest/v1/' + username + '/js-tests',
     {
         auth: { user: username, pass: accessKey },
-        json: {
-            platforms: [ browser ],
-            url: "http://localhost:" + port + "/test/index.html",
-            framework: "qunit"
-        }
+        json: testDefinition
     },
     function (error, response, body) {
         if (response.statusCode == 200) {
