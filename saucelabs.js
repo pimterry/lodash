@@ -72,14 +72,14 @@ function waitForTestCompletion(testIdentifier) {
 
 function handleTestResults(results) {
     var allTestsSuccessful = results.reduce(function (passedSoFar, test) {
-        return passedSoFar && test.result && test.result.failed === 0;
+        return passedSoFar && test.result.failed === 0;
     }, true);
 
     if (allTestsSuccessful) {
         console.log("Tests passed");
     } else {
         var failingTests = results.filter(function (test) {
-            return !(test.result && test.result.failed === 0);
+            return test.result.failed !== 0;
         });
         var failingPlatforms = failingTests.map(function (test) {
             return test.platform;
@@ -90,10 +90,10 @@ function handleTestResults(results) {
         failingTests.forEach(function (test) {
             var platform = JSON.stringify(test.platform);
 
-            if (test.result) {
-                console.error(test.result.failed + " failures on " + platform);
+            if (test.result.failed) {
+                console.error(test.result.failed + " failures on " + platform + ". See " + test.url + " for details.");
             } else {
-                console.error("Testing on " + platform + " failed in SauceLabs; no results available");
+                console.error("Testing on " + platform + " failed; no results available. See " + test.url + " for details.");
             }
         });
     }
