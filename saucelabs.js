@@ -18,6 +18,7 @@ var server = connect.createServer(
 // Set up sauce connect so we can use this server from saucelabs
 var tunnelTimeout = 10000;
 var tunnel = new SauceTunnel(username, accessKey, null, true, tunnelTimeout);
+
 console.log("Opening sauce connect tunnel...");
 tunnel.start(function (success) {
     if (success) {
@@ -38,50 +39,66 @@ function runTests() {
 
     console.log("Starting saucelabs tests: " + JSON.stringify(testDefinition));
 
-    request.post(
-        'https://saucelabs.com/rest/v1/' + username + '/js-tests',
-        {
-            auth: { user: username, pass: accessKey },
-            json: testDefinition
-        },
-        function (error, response, body) {
-            if (response.statusCode == 200) {
-                var testIdentifier = body;
-                waitForTestCompletion(testIdentifier);
-            } else {
-                console.error("Failed to submit test to SauceLabs, status " + response.statusCode + ", body:\n" + JSON.stringify(body));
-            }
+    request.post('https://saucelabs.com/rest/v1/' + username + '/js-tests', {
+        auth: { user: username, pass: accessKey },
+        json: testDefinition
+    }, function (error, response, body) {
+        if (response.statusCode == 200) {
+            var testIdentifier = body;
+            waitForTestCompletion(testIdentifier);
+        } else {
+            console.error("Failed to submit test to SauceLabs, status " + response.statusCode + ", body:\n" + JSON.stringify(body));
         }
-    );
+    });
 }
 
 function waitForTestCompletion(testIdentifier) {
-    request.post(
-        'https://saucelabs.com/rest/v1/' + username + '/js-tests/status',
-        {
-            auth: { user: username, pass: accessKey },
-            json: testIdentifier
-        },
-        function (error, response, body) {
-            if (response.statusCode == 200) {
-                console.log(JSON.stringify(body));
-                if (body["completed"] == true) {
-                    handleTestResults(body["js tests"]);
-                } else {
-                    waitForTestCompletion(testIdentifier);
-                }
+    request.post('https://saucelabs.com/rest/v1/' + username + '/js-tests/status', {
+        auth: { user: username, pass: accessKey },
+        json: testIdentifier
+    }, function (error, response, body) {
+        if (response.statusCode == 200) {
+            if (body["completed"] == true) {
+                handleTestResults(body["js tests"]);
             } else {
-                throw "Failed to check test status on SauceLabs, status " + response.statusCode + ", body:\n" + JSON.stringify(body);
+                waitForTestCompletion(testIdentifier);
             }
+        } else {
+            throw "Failed to check test status on SauceLabs, status " + response.statusCode + ", body:\n" + JSON.stringify(body);
         }
-    );
+    });
 }
 
 function handleTestResults(results) {
-    var allTestsSuccessful = results.reduce(function (passedSoFar, result) {
-        return passedSoFar && !!result['passed']
+    var allTestsSuccessful = results.reduce(function (passedSoFar, test) {
+        return passedSoFar && test.result && test.result.failed === 0;
     }, true);
 
-    console.log(allTestsSuccessful ? "Test passed" : "Test failed");
-    process.exit(allTestsSuccessful ? 0 : 1);
+    if (allTestsSuccessful) {
+        console.log("Tests passed");
+    } else {
+        var failingTests = results.filter(function (test) {
+            return !(test.result && test.result.failed === 0);
+        });
+        var failingPlatforms = failingTests.map(function (test) {
+            return test.platform;
+        });
+
+        console.error("Tests failed on platforms: " + JSON.stringify(failingPlatforms));
+
+        failingTests.forEach(function (test) {
+            var platform = JSON.stringify(test.platform);
+
+            if (test.result) {
+                console.error(test.result.failed + " failures on " + platform);
+            } else {
+                console.error("Testing on " + platform + " failed in SauceLabs; no results available");
+            }
+        });
+    }
+
+    console.log("Shutting down sauce connect tunnel...");
+    tunnel.stop(function () {
+        process.exit(allTestsSuccessful ? 0 : 1);
+    })
 }
