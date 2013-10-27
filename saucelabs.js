@@ -1,44 +1,59 @@
+var connect = require('connect');
+var SauceTunnel = require('sauce-tunnel');
+var request = require('request');
+
 var port = 8081;
+var username = process.env['SAUCE_USERNAME'];
+var accessKey = process.env['SAUCE_ACCESS_KEY'];
+var platforms = [
+    ["Windows 7", "chrome", ""],
+    ["Windows 7", "firefox", "24"]
+];
 
 // Create a web server for the local dir
-var connect = require('connect');
 var server = connect.createServer(
     connect.static(__dirname)
 ).listen(port);
 
-// Tell saucelabs to run some tests
-var browser = JSON.parse(process.env['SAUCE_BROWSER']);
-var username = process.env['SAUCE_USERNAME'];
-var accessKey = process.env['SAUCE_ACCESS_KEY'];
-var sauceConnectTunnel = process.env['TRAVIS_JOB_NUMBER'] // TODO: How should this work locally?
-
-var request = require('request');
-
-var testDefinition = {
-    platforms: [ browser ],
-    url: "http://localhost:" + port + "/test/index.html",
-    framework: "qunit",
-    "tunnel-identifier": sauceConnectTunnel
-};
-
-console.log("Starting saucelabs test: " + JSON.stringify(testDefinition));
-
-request.post(
-    'https://saucelabs.com/rest/v1/' + username + '/js-tests',
-    {
-        auth: { user: username, pass: accessKey },
-        json: testDefinition
-    },
-    function (error, response, body) {
-        if (response.statusCode == 200) {
-            var testIdentifier = body;
-            waitForTestCompletion(testIdentifier);
-        } else {
-            console.error(typeof response.statusCode);
-            throw "Failed to submit test to SauceLabs, status " + response.statusCode + ", body:\n" + JSON.stringify(body);
-        }
+// Set up sauce connect so we can use this server from saucelabs
+var tunnelTimeout = 10000;
+var tunnel = new SauceTunnel(username, accessKey, null, true, tunnelTimeout);
+console.log("Opening sauce connect tunnel...");
+tunnel.start(function (success) {
+    if (success) {
+        console.log("Sauce connect tunnel opened");
+        runTests();
+    } else {
+        console.error("Failed to open sauce connect tunnel")
+        process.exit(2);
     }
-);
+});
+
+function runTests() {
+    var testDefinition = {
+        platforms: platforms,
+        url: "http://localhost:" + port + "/test/index.html",
+        framework: "qunit"
+    };
+
+    console.log("Starting saucelabs tests: " + JSON.stringify(testDefinition));
+
+    request.post(
+        'https://saucelabs.com/rest/v1/' + username + '/js-tests',
+        {
+            auth: { user: username, pass: accessKey },
+            json: testDefinition
+        },
+        function (error, response, body) {
+            if (response.statusCode == 200) {
+                var testIdentifier = body;
+                waitForTestCompletion(testIdentifier);
+            } else {
+                console.error("Failed to submit test to SauceLabs, status " + response.statusCode + ", body:\n" + JSON.stringify(body));
+            }
+        }
+    );
+}
 
 function waitForTestCompletion(testIdentifier) {
     request.post(
