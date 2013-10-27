@@ -7,7 +7,8 @@ var username = process.env['SAUCE_USERNAME'];
 var accessKey = process.env['SAUCE_ACCESS_KEY'];
 var platforms = [
     ["Windows 7", "chrome", ""],
-    ["Windows 7", "firefox", "24"]
+    ["Windows 7", "firefox", "24"],
+    ["Windows 7", "internet explorer", "9"]
 ];
 
 // Create a web server for the local dir
