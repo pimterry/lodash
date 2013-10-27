@@ -5,7 +5,7 @@ node_js:
   - "0.10"
 env:
   global:
-    - BIN="node" BUILD=false MAKE=false OPTION="" SAUCELABS_BROWSER=false
+    - BIN="node" BUILD=false MAKE=false OPTION="" SAUCELABS=false
 
     # SauceLabs credentials:
     - SAUCE_USERNAME="pimterry"
